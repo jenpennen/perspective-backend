@@ -60,7 +60,36 @@ func newPool() (*pgxpool.Pool, error) {
 
 	return pool, nil
 }
+// inserts a new user into the users table and returns the user id
+func insertUser(pool *pgxpool.Pool, firstName, lastName, email string) (uuid.UUID, error) {
+    var id uuid.UUID
 
+    row := pool.QueryRow(
+        context.Background(),
+        "insert into users(first_name, last_name, email) values ($1, $2, $3) on conflict(email) do nothing returning id",
+        firstName, lastName, email,
+    )
+
+    err := row.Scan(&id)
+    if err != nil {
+        return uuid.Nil, fmt.Errorf("failed to insert user: %w", err)
+    }
+
+    return id, nil
+}
+
+// deletes a user in the users table by user id
+func deleteUser(pool *pgxpool.Pool, id uuid.UUID) error {
+	result, err := pool.Exec(context.Background(), "delete from users where id = $1", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("no user found with id %v", id)
+	}
+	return nil
+
+}
 func main() {
 	err:= godotenv.Load()
 	if err != nil { log.Fatal(err)}
@@ -71,12 +100,30 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	row := pool.QueryRow(context.Background(), "insert into users(first_name, last_name, email) values ($1, $2, $3) returning id", "jenny", "cho", "jennycho35@gmail.com")
-	var id uuid.UUID
-	err = row.Scan(&id)
+	// row := pool.QueryRow(context.Background(), "insert into users(first_name, last_name, email) values ($1, $2, $3) returning id", "jenny", "cho", "jennycho35@gmail.com")
+
+	// var id uuid.UUID
+	// err = row.Scan(&id)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Println(id)
+ 	userID, err := insertUser(pool, "Jenny", "Cho", "jennycho35@gmail.com")
+    if err != nil {
+        log.Fatalf("Error inserting user: %v\n", err)
+    }
+	fmt.Printf("New user ID: %v\n", userID)
+	err = deleteUser(pool, userID)
 	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(id)
+        log.Printf("Error deleting user: %v\n", err)
+    } else {
+        fmt.Println("User deleted successfully")
+    }
+	userID, err = insertUser(pool, "Anish", "Sinha", "anishsinha0128@gmail.com")
+    if err != nil {
+        log.Fatalf("Error inserting user: %v\n", err)
+    }
+	fmt.Printf("New user ID: %v\n", userID)	
+
 }
 
