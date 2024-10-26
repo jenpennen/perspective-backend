@@ -98,7 +98,7 @@ func deleteUser(pool *pgxpool.Pool, id uuid.UUID) error {
 
 }
 // get user by name
-func getUser(pool *pgxpool.Pool, column, value string) (*User, error) {
+func getUser(pool *pgxpool.Pool, column, value string) ([]User, error) {
 	columns := map[string] bool {
 		"first_name" : true,
 		"last_name" : true,
@@ -110,18 +110,41 @@ func getUser(pool *pgxpool.Pool, column, value string) (*User, error) {
 	}
 	query := fmt.Sprintf("select id, first_name, last_name, email from users where %s = $1", column)
 
-	var user User
-
-	row := pool.QueryRow(context.Background(), query, value)
-	err := row.Scan(&user.id, &user.firstName, &user.lastName, &user.email)
-
+	rows, err := pool.Query(context.Background(), query, value)
 	if err != nil {
-        return nil, fmt.Errorf("failed to retrieve user: %w", err)
-    }
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
 
-    return &user, nil
+	var users []User
+
+	for rows.Next() {
+		var user User
+		// row := pool.QueryRow(context.Background(), query, value)
+		err := rows.Scan(&user.id, &user.firstName, &user.lastName, &user.email)
+
+		if err != nil {
+        return nil, fmt.Errorf("failed to retrieve user: %w", err)
+    	}
+		users = append(users, user)
+	}
+	
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error occurred during row iteration: %w", rows.Err())
+	}
+
+    return users, nil
 }
 
+//insert test users
+func insertTestUser(pool *pgxpool.Pool, firstName, lastName, email string) {
+    userID, err := insertUser(pool, firstName, lastName, email)
+    if err != nil {
+        log.Printf("Error inserting user %s %s: %v\n", firstName, lastName, err)
+        return
+    }
+    fmt.Printf("New user ID for %s %s: %v\n", firstName, lastName, userID)
+}
 //deletes user by id 
 func main() {
 	err:= godotenv.Load()
@@ -133,14 +156,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// row := pool.QueryRow(context.Background(), "insert into users(first_name, last_name, email) values ($1, $2, $3) returning id", "jenny", "cho", "jennycho35@gmail.com")
 
-	// var id uuid.UUID
-	// err = row.Scan(&id)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Println(id)
  	userID, err := insertUser(pool, "Jenny", "Cho", "jennycho35@gmail.com")
     if err != nil {
         log.Fatalf("Error inserting user: %v\n", err)
@@ -152,28 +168,31 @@ func main() {
     } else {
         fmt.Println("User deleted successfully")
     }
-	userID, err = insertUser(pool, "Anish", "Sinha", "anishsinha0128@gmail.com")
-    if err != nil {
-        log.Fatalf("Error inserting user: %v\n", err)
+	testUsers := []struct {
+		firstName string
+		lastName string
+		email string
+	}{
+		{"Anish", "Sinha", "anishsinha0128@gmail.com"},
+        {"Jenny", "Kim", "jennykim12@gmail.com"},
+	    {"Jenny", "Cho", "jennycho35@gmail.com"},
+		{"Toffee", "Sinha", "toffee123@gmail.com"},
+		{"Meadow", "Sinha", "meadow12@gmail.com"},
+		{"Melody", "Cho", "melodyc12@gmail.com"},
+	    {"Earl", "Cho", "earlthegrey12@gmail.com"},
+		{"Honey", "Cho", "honeyb12@gmail.com"},
+		{"Almond", "Cho", "almond#1@gmail.com"},
+	}
+	for _, u := range testUsers {
+        insertTestUser(pool, u.firstName, u.lastName, u.email)
     }
-	fmt.Printf("New user ID: %v\n", userID)	
-	userID, err = insertUser(pool, "Jenny", "Kim", "jennykim12@gmail.com")
-    if err != nil {
-        log.Fatalf("Error inserting user: %v\n", err)
-    }
-	fmt.Printf("New user ID: %v\n", userID)	
-	userID, err = insertUser(pool, "Jenny", "Cho", "jennycho35@gmail.com")
-    if err != nil {
-        log.Fatalf("Error inserting user: %v\n", err)
-    }
-	fmt.Printf("New user ID: %v\n", userID)	
 
 	//retrieve user by email
-	user, err := getUser(pool,"first_name", "Jenny")
+	user, err := getUser(pool,"last_name", "Cho")
 	if err != nil {
         log.Printf("Error retrieving user: %v\n", err)
     } else {
-        fmt.Printf("User found: %+v\n", user)
+        fmt.Printf("User found: %v\n", user)
     }
 
 }
