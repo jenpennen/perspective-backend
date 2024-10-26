@@ -60,13 +60,20 @@ func newPool() (*pgxpool.Pool, error) {
 
 	return pool, nil
 }
+
+type User struct {
+	id string
+	firstName string
+	lastName string
+	email string
+}
 // inserts a new user into the users table and returns the user id
 func insertUser(pool *pgxpool.Pool, firstName, lastName, email string) (uuid.UUID, error) {
     var id uuid.UUID
 
     row := pool.QueryRow(
         context.Background(),
-        "insert into users(first_name, last_name, email) values ($1, $2, $3) on conflict(email) do nothing returning id",
+        "insert into users(first_name, last_name, email) values ($1, $2, $3) on conflict(email) do update set email=$3 returning id",
         firstName, lastName, email,
     )
 
@@ -90,6 +97,32 @@ func deleteUser(pool *pgxpool.Pool, id uuid.UUID) error {
 	return nil
 
 }
+// get user by name
+func getUser(pool *pgxpool.Pool, column, value string) (*User, error) {
+	columns := map[string] bool {
+		"first_name" : true,
+		"last_name" : true,
+		"email" : true,
+	}
+
+	if !columns[column] {
+		return nil, fmt.Errorf("invalid column name: %s", column)
+	}
+	query := fmt.Sprintf("select id, first_name, last_name, email from users where %s = $1", column)
+
+	var user User
+
+	row := pool.QueryRow(context.Background(), query, value)
+	err := row.Scan(&user.id, &user.firstName, &user.lastName, &user.email)
+
+	if err != nil {
+        return nil, fmt.Errorf("failed to retrieve user: %w", err)
+    }
+
+    return &user, nil
+}
+
+//deletes user by id 
 func main() {
 	err:= godotenv.Load()
 	if err != nil { log.Fatal(err)}
@@ -124,6 +157,24 @@ func main() {
         log.Fatalf("Error inserting user: %v\n", err)
     }
 	fmt.Printf("New user ID: %v\n", userID)	
+	userID, err = insertUser(pool, "Jenny", "Kim", "jennykim12@gmail.com")
+    if err != nil {
+        log.Fatalf("Error inserting user: %v\n", err)
+    }
+	fmt.Printf("New user ID: %v\n", userID)	
+	userID, err = insertUser(pool, "Jenny", "Cho", "jennycho35@gmail.com")
+    if err != nil {
+        log.Fatalf("Error inserting user: %v\n", err)
+    }
+	fmt.Printf("New user ID: %v\n", userID)	
+
+	//retrieve user by email
+	user, err := getUser(pool,"first_name", "Jenny")
+	if err != nil {
+        log.Printf("Error retrieving user: %v\n", err)
+    } else {
+        fmt.Printf("User found: %+v\n", user)
+    }
 
 }
 
