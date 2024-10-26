@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/google/uuid"
@@ -62,10 +63,10 @@ func newPool() (*pgxpool.Pool, error) {
 }
 
 type User struct {
-	id string
-	firstName string
-	lastName string
-	email string
+	ID string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName string `json:"last_name"`
+	Email string `json:"email"`
 }
 // inserts a new user into the users table and returns the user id
 func insertUser(pool *pgxpool.Pool, firstName, lastName, email string) (uuid.UUID, error) {
@@ -86,6 +87,7 @@ func insertUser(pool *pgxpool.Pool, firstName, lastName, email string) (uuid.UUI
 }
 
 // deletes a user in the users table by user id
+// delete for specific columns ex. DeleteByEmail, DeleteByID
 func deleteUser(pool *pgxpool.Pool, id uuid.UUID) error {
 	result, err := pool.Exec(context.Background(), "delete from users where id = $1", id)
 	if err != nil {
@@ -97,8 +99,10 @@ func deleteUser(pool *pgxpool.Pool, id uuid.UUID) error {
 	return nil
 
 }
-// get user by name
-func getUser(pool *pgxpool.Pool, column, value string) ([]User, error) {
+// get user by name 
+// only return one user here
+// create selects for specific columns ex. getUsersByFirstName, getUsersByEmail etc
+func getUser(pool *pgxpool.Pool, column string, value string) ([]User, error) {
 	columns := map[string] bool {
 		"first_name" : true,
 		"last_name" : true,
@@ -108,7 +112,9 @@ func getUser(pool *pgxpool.Pool, column, value string) ([]User, error) {
 	if !columns[column] {
 		return nil, fmt.Errorf("invalid column name: %s", column)
 	}
+	// no interpolating in any SQL!!
 	query := fmt.Sprintf("select id, first_name, last_name, email from users where %s = $1", column)
+	fmt.Println(query)
 
 	rows, err := pool.Query(context.Background(), query, value)
 	if err != nil {
@@ -121,7 +127,7 @@ func getUser(pool *pgxpool.Pool, column, value string) ([]User, error) {
 	for rows.Next() {
 		var user User
 		// row := pool.QueryRow(context.Background(), query, value)
-		err := rows.Scan(&user.id, &user.firstName, &user.lastName, &user.email)
+		err := rows.Scan(&user.ID, &user.FirstName, &user.LastName, &user.Email)
 
 		if err != nil {
         return nil, fmt.Errorf("failed to retrieve user: %w", err)
@@ -145,7 +151,7 @@ func insertTestUser(pool *pgxpool.Pool, firstName, lastName, email string) {
     }
     fmt.Printf("New user ID for %s %s: %v\n", firstName, lastName, userID)
 }
-//deletes user by id 
+
 func main() {
 	err:= godotenv.Load()
 	if err != nil { log.Fatal(err)}
@@ -156,46 +162,49 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	app := newAPIServer(pool).build()
+	srv := &http.Server{Addr: ":8890", Handler: app}
+	log.Fatal(srv.ListenAndServe())
 
-	testUsers := []struct {
-		firstName string
-		lastName string
-		email string
-	}{
-		{"Anish", "Sinha", "anishsinha0128@gmail.com"},
-        {"Jenny", "Kim", "jennykim12@gmail.com"},
-	    {"Jenny", "Cho", "jennycho35@gmail.com"},
-		{"Toffee", "Sinha", "toffee123@gmail.com"},
-		{"Meadow", "Sinha", "meadow12@gmail.com"},
-		{"Melody", "Cho", "melodyc12@gmail.com"},
-	    {"Earl", "Cho", "earlthegrey12@gmail.com"},
-		{"Honey", "Cho", "honeyb12@gmail.com"},
-		{"Almond", "Cho", "almond#1@gmail.com"},
-	}
-	for _, u := range testUsers {
-        insertTestUser(pool, u.firstName, u.lastName, u.email)
-	}
-	userID, err := insertUser(pool, "firstName", "lastName", "email")
-	if err != nil {
-        log.Fatalf("Error inserting test user: %v\n", err)
-    }
-    fmt.Printf("Inserted test user with ID: %v\n", userID)
-	fmt.Println("Deleting the test user...")
-    err = deleteUser(pool, userID)
-    if err != nil {
-        log.Fatalf("Error deleting test user: %v\n", err)
-    }
+	// testUsers := []struct {
+	// 	firstName string
+	// 	lastName string
+	// 	email string
+	// }{
+	// 	{"Anish", "Sinha", "anishsinha0128@gmail.com"},
+    //     {"Jenny", "Kim", "jennykim12@gmail.com"},
+	//     {"Jenny", "Cho", "jennycho35@gmail.com"},
+	// 	{"Toffee", "Sinha", "toffee123@gmail.com"},
+	// 	{"Meadow", "Sinha", "meadow12@gmail.com"},
+	// 	{"Melody", "Cho", "melodyc12@gmail.com"},
+	//     {"Earl", "Cho", "earlthegrey12@gmail.com"},
+	// 	{"Honey", "Cho", "honeyb12@gmail.com"},
+	// 	{"Almond", "Cho", "almond#1@gmail.com"},
+	// }
+	// for _, u := range testUsers {
+    //     insertTestUser(pool, u.firstName, u.lastName, u.email)
+	// }
+	// userID, err := insertUser(pool, "firstName", "lastName", "email")
+	// if err != nil {
+    //     log.Fatalf("Error inserting test user: %v\n", err)
+    // }
+    // fmt.Printf("Inserted test user with ID: %v\n", userID)
+	// fmt.Println("Deleting the test user...")
+    // err = deleteUser(pool, userID)
+    // if err != nil {
+    //     log.Fatalf("Error deleting test user: %v\n", err)
+    // }
 
 
-	//retrieve user by last name
-	lastName := "Cho"
-	fmt.Printf("Retrieving users based on %v\n", lastName)
-	user, err := getUser(pool,"last_name", lastName)
-	if err != nil {
-        log.Printf("Error retrieving user: %v\n", err)
-    } else {
-        fmt.Printf("User found: %v\n", user)
-    }
+	// //retrieve user by last name
+	// lastName := "Cho"
+	// fmt.Printf("Retrieving users based on %v\n", lastName)
+	// user, err := getUser(pool,"last_name", lastName)
+	// if err != nil {
+    //     log.Printf("Error retrieving user: %v\n", err)
+    // } else {
+    //     fmt.Printf("User found: %v\n", user)
+    // }
 
 }
 
