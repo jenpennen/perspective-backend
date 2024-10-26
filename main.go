@@ -157,17 +157,6 @@ func main() {
 		log.Fatal(err)
 	}
 
- 	userID, err := insertUser(pool, "Jenny", "Cho", "jennycho35@gmail.com")
-    if err != nil {
-        log.Fatalf("Error inserting user: %v\n", err)
-    }
-	fmt.Printf("New user ID: %v\n", userID)
-	err = deleteUser(pool, userID)
-	if err != nil {
-        log.Printf("Error deleting user: %v\n", err)
-    } else {
-        fmt.Println("User deleted successfully")
-    }
 	testUsers := []struct {
 		firstName string
 		lastName string
@@ -185,10 +174,23 @@ func main() {
 	}
 	for _, u := range testUsers {
         insertTestUser(pool, u.firstName, u.lastName, u.email)
+	}
+	userID, err := insertUser(pool, "firstName", "lastName", "email")
+	if err != nil {
+        log.Fatalf("Error inserting test user: %v\n", err)
+    }
+    fmt.Printf("Inserted test user with ID: %v\n", userID)
+	fmt.Println("Deleting the test user...")
+    err = deleteUser(pool, userID)
+    if err != nil {
+        log.Fatalf("Error deleting test user: %v\n", err)
     }
 
-	//retrieve user by email
-	user, err := getUser(pool,"last_name", "Cho")
+
+	//retrieve user by last name
+	lastName := "Cho"
+	fmt.Printf("Retrieving users based on %v\n", lastName)
+	user, err := getUser(pool,"last_name", lastName)
 	if err != nil {
         log.Printf("Error retrieving user: %v\n", err)
     } else {
