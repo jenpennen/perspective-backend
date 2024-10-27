@@ -37,15 +37,15 @@ func (h *handler) health(w http.ResponseWriter, _ *http.Request) {
 func (h *handler)build() http.Handler {
 	router := chi.NewRouter()
 	router.HandleFunc("/health", h.health)
-	router.Get("/users", h.getUsers)
+	router.Get("/users", h.getUsersByFirstName)
 	return router
 
 } 
 
-func (h *handler) getUsers(w http.ResponseWriter, r *http.Request) {
+func (h *handler) getUsersByFirstName(w http.ResponseWriter, r *http.Request) {
 	params := struct {
-		Column string `json:"column"`
-		Value string `json:"value"`
+		FirstName string `json:"firstname"`
+		// Value string `json:"value"`
 	}{
 	}
 
@@ -55,7 +55,7 @@ func (h *handler) getUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("here")
-	users, err := getUsersByEmail(h.pool, params.Column, params.Value)
+	users, err := getUsersByFirstName(h.pool, params.FirstName)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

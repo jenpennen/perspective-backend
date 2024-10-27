@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/google/uuid"
@@ -68,6 +67,7 @@ type User struct {
 	LastName string `json:"last_name"`
 	Email string `json:"email"`
 }
+
 // inserts a new user into the users table and returns the user id
 func insertUser(pool *pgxpool.Pool, firstName, lastName, email string) (uuid.UUID, error) {
     var id uuid.UUID
@@ -99,47 +99,81 @@ func deleteUserByID(pool *pgxpool.Pool, userID uuid.UUID) error {
 	return nil
 
 }
-// get user by name 
-// only return one user here
+// get user by email
 // create selects for specific columns ex. getUsersByFirstName, getUsersByEmail etc
-func getUsersByEmail(pool *pgxpool.Pool, column string, value string) ([]User, error) {
-	columns := map[string] bool {
-		"first_name" : false,
-		"last_name" : false,
-		"email" : true,
-	}
+func getUserByEmail(pool *pgxpool.Pool, email string) (*User, error) {
+	// query to select user by email
+	query := "select id, first_name, last_name, email from users where email = $1"
 
-	if !columns[column] {
-		return nil, fmt.Errorf("invalid column name: %s", column)
+	var user User
+	row := pool.QueryRow(context.Background(), query, email)
+	err := row.Scan(&user.ID, &user.FirstName, &user.LastName, &user.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve user by email: %w", err)
 	}
-	// no interpolating in any SQL!!
-	query := fmt.Sprintf("select id, first_name, last_name, email from users where %s = $1", column)
-	fmt.Println(query)
+	return &user, nil
+}
 
-	rows, err := pool.Query(context.Background(), query, value)
+// gets user by userID
+func getUserByID(pool *pgxpool.Pool, userID uuid.UUID) (*User, error) {
+	// query to select user by userID
+	query := "select id, first_name, last_name, email from users where id = $1"
+
+	var user User
+	row := pool.QueryRow(context.Background(), query, userID)
+	err := row.Scan(&user.ID, &user.FirstName, &user.LastName, &user.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve user by email: %w", err)
+	}
+	return &user, nil
+}
+// get users by first name
+func getUsersByFirstName(pool *pgxpool.Pool, firstName string) ([]User, error) {
+	//query to select users by first name
+	query := "select id, first_name, last_name, email from users where first_name = $1"
+
+	rows, err := pool.Query(context.Background(), query, firstName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
 
 	var users []User
-
-	for rows.Next() {
+	for rows.Next(){
 		var user User
-		// row := pool.QueryRow(context.Background(), query, value)
-		err := rows.Scan(&user.ID, &user.FirstName, &user.LastName, &user.Email)
-
-		if err != nil {
-        return nil, fmt.Errorf("failed to retrieve user: %w", err)
-    	}
+		if err := rows.Scan(&user.ID, &user.FirstName, &user.LastName, &user.Email); err!= nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
 		users = append(users, user)
 	}
-	
 	if rows.Err() != nil {
-		return nil, fmt.Errorf("error occurred during row iteration: %w", rows.Err())
+		return nil, fmt.Errorf("error occurred during rows iteration: %w", rows.Err())
 	}
+	return users, nil
+}
+// get user by last name
+func getUsersByLastName(pool *pgxpool.Pool, lastName string) ([]User, error) {
+	//query to select users by last name
+	query := "select id, first_name, last_name, email from users where last_name = $1"
 
-    return users, nil
+	rows, err := pool.Query(context.Background(), query, lastName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next(){
+		var user User
+		if err := rows.Scan(&user.ID, &user.FirstName, &user.LastName, &user.Email); err!= nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		users = append(users, user)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error occurred during rows iteration: %w", rows.Err())
+	}
+	return users, nil
 }
 
 //insert test users
@@ -162,9 +196,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	app := newAPIServer(pool).build()
-	srv := &http.Server{Addr: ":8890", Handler: app}
-	log.Fatal(srv.ListenAndServe())
+	// app := newAPIServer(pool).build()
+	// srv := &http.Server{Addr: ":8890", Handler: app}
+	// log.Fatal(srv.ListenAndServe())
 
 	testUsers := []struct {
 		firstName string
@@ -195,16 +229,52 @@ func main() {
         log.Fatalf("Error deleting test user: %v\n", err)
     }
 
+	fmt.Print("HERE HERE HERE")
 
-	// //retrieve user by last name
-	// lastName := "Cho"
-	// fmt.Printf("Retrieving users based on %v\n", lastName)
-	// user, err := getUser(pool,"last_name", lastName)
-	// if err != nil {
-    //     log.Printf("Error retrieving user: %v\n", err)
-    // } else {
-    //     fmt.Printf("User found: %v\n", user)
-    // }
+	// test get user by email
+	email := "jennycho35@gmail.com"
+	fmt.Printf("Retrieving users based on %v\n", email)
+	user, err := getUserByEmail(pool, email)
+	if err != nil {
+        log.Printf("Error retrieving user: %v\n", err)
+    } else {
+        fmt.Printf("User found: %v\n", user)
+    }
+	
+	userID, err = insertUser(pool, "Emily", "Chang", "emilychang@gmail.com")
+	if err != nil {
+        log.Fatalf("Error inserting test user: %v\n", err)
+    } else {
+		fmt.Printf("Inserted test user with ID: %v\n", userID)	
+	}
 
+	user, err = getUserByID(pool, userID)
+	if err != nil {
+		log.Printf("Error retrieving user: %v\n", err)
+		} else {
+			fmt.Printf("User found: %v\n", user)
+		}	
+	// Test the getUsersByFirstName function
+    firstName := "Jenny"
+    users, err := getUsersByFirstName(pool, firstName)
+    if err != nil {
+        log.Fatalf("Error retrieving users: %v", err)
+    }
+
+    fmt.Printf("Users found with first name '%s':\n", firstName)
+    for _, user := range users {
+        fmt.Printf("%v\n", user)
+    }
+
+	lastName := "Cho"
+    users, err = getUsersByLastName(pool, lastName)
+    if err != nil {
+        log.Fatalf("Error retrieving users: %v", err)
+    }
+
+    fmt.Printf("Users found with last name '%s':\n", lastName)
+    for _, user := range users {
+        fmt.Printf("%v\n", user)
+    }
 }
 
