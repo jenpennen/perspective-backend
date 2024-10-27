@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/google/uuid"
@@ -196,9 +197,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// app := newAPIServer(pool).build()
-	// srv := &http.Server{Addr: ":8890", Handler: app}
-	// log.Fatal(srv.ListenAndServe())
+	app := newAPIServer(pool).build()
+	srv := &http.Server{Addr: ":8890", Handler: app}
+	log.Fatal(srv.ListenAndServe())
 
 	testUsers := []struct {
 		firstName string

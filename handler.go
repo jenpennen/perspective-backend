@@ -44,18 +44,18 @@ func (h *handler)build() http.Handler {
 
 func (h *handler) getUsersByFirstName(w http.ResponseWriter, r *http.Request) {
 	params := struct {
-		FirstName string `json:"firstname"`
+		Value string `json:"value"`
 		// Value string `json:"value"`
 	}{
 	}
-
+	fmt.Println("here1")
 	err := json.NewDecoder(r.Body).Decode(&params)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	fmt.Println("here")
-	users, err := getUsersByFirstName(h.pool, params.FirstName)
+	fmt.Println("here2")
+	users, err := getUsersByFirstName(h.pool, params.Value)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
