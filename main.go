@@ -88,13 +88,13 @@ func insertUser(pool *pgxpool.Pool, firstName, lastName, email string) (uuid.UUI
 
 // deletes a user in the users table by user id
 // delete for specific columns ex. DeleteByEmail, DeleteByID
-func deleteUser(pool *pgxpool.Pool, id uuid.UUID) error {
-	result, err := pool.Exec(context.Background(), "delete from users where id = $1", id)
+func deleteUserByID(pool *pgxpool.Pool, userID uuid.UUID) error {
+	result, err := pool.Exec(context.Background(), "delete from users where id = $1", userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("no user found with id %v", id)
+		return fmt.Errorf("no user found with id %v", userID)
 	}
 	return nil
 
@@ -102,10 +102,10 @@ func deleteUser(pool *pgxpool.Pool, id uuid.UUID) error {
 // get user by name 
 // only return one user here
 // create selects for specific columns ex. getUsersByFirstName, getUsersByEmail etc
-func getUser(pool *pgxpool.Pool, column string, value string) ([]User, error) {
+func getUsersByEmail(pool *pgxpool.Pool, column string, value string) ([]User, error) {
 	columns := map[string] bool {
-		"first_name" : true,
-		"last_name" : true,
+		"first_name" : false,
+		"last_name" : false,
 		"email" : true,
 	}
 
@@ -166,34 +166,34 @@ func main() {
 	srv := &http.Server{Addr: ":8890", Handler: app}
 	log.Fatal(srv.ListenAndServe())
 
-	// testUsers := []struct {
-	// 	firstName string
-	// 	lastName string
-	// 	email string
-	// }{
-	// 	{"Anish", "Sinha", "anishsinha0128@gmail.com"},
-    //     {"Jenny", "Kim", "jennykim12@gmail.com"},
-	//     {"Jenny", "Cho", "jennycho35@gmail.com"},
-	// 	{"Toffee", "Sinha", "toffee123@gmail.com"},
-	// 	{"Meadow", "Sinha", "meadow12@gmail.com"},
-	// 	{"Melody", "Cho", "melodyc12@gmail.com"},
-	//     {"Earl", "Cho", "earlthegrey12@gmail.com"},
-	// 	{"Honey", "Cho", "honeyb12@gmail.com"},
-	// 	{"Almond", "Cho", "almond#1@gmail.com"},
-	// }
-	// for _, u := range testUsers {
-    //     insertTestUser(pool, u.firstName, u.lastName, u.email)
-	// }
-	// userID, err := insertUser(pool, "firstName", "lastName", "email")
-	// if err != nil {
-    //     log.Fatalf("Error inserting test user: %v\n", err)
-    // }
-    // fmt.Printf("Inserted test user with ID: %v\n", userID)
-	// fmt.Println("Deleting the test user...")
-    // err = deleteUser(pool, userID)
-    // if err != nil {
-    //     log.Fatalf("Error deleting test user: %v\n", err)
-    // }
+	testUsers := []struct {
+		firstName string
+		lastName string
+		email string
+	}{
+		{"Anish", "Sinha", "anishsinha0128@gmail.com"},
+        {"Jenny", "Kim", "jennykim12@gmail.com"},
+	    {"Jenny", "Cho", "jennycho35@gmail.com"},
+		{"Toffee", "Sinha", "toffee123@gmail.com"},
+		{"Meadow", "Sinha", "meadow12@gmail.com"},
+		{"Melody", "Cho", "melodyc12@gmail.com"},
+	    {"Earl", "Cho", "earlthegrey12@gmail.com"},
+		{"Honey", "Cho", "honeyb12@gmail.com"},
+		{"Almond", "Cho", "almond#1@gmail.com"},
+	}
+	for _, u := range testUsers {
+        insertTestUser(pool, u.firstName, u.lastName, u.email)
+	}
+	userID, err := insertUser(pool, "firstName", "lastName", "email")
+	if err != nil {
+        log.Fatalf("Error inserting test user: %v\n", err)
+    }
+    fmt.Printf("Inserted test user with ID: %v\n", userID)
+	fmt.Println("Deleting the test user...")
+    err = deleteUserByID(pool, userID)
+    if err != nil {
+        log.Fatalf("Error deleting test user: %v\n", err)
+    }
 
 
 	// //retrieve user by last name
